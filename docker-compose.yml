@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: 10q_sqlserver
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=YourStrong@Pass123!
+      - MSSQL_PID=Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+      - ./database/10QChallenge_DbSchema.sql:/docker-entrypoint-initdb.d/01_schema.sql
+      - ./database/10QChallenge_SeedData.sql:/docker-entrypoint-initdb.d/02_seed.sql
+    restart: always
+    networks:
+      - 10q_network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: 10q_backend_api
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=10QChallengeDb;User Id=sa;Password=YourStrong@Pass123!;TrustServerCertificate=True;
+      - Jwt__Key=10QChallenge_SecureKey_SuperSecret_2025_Min256BitsLong!
+      - PayU__MerchantKey=${PAYU_MERCHANT_KEY:-PAYU_KEY}
+      - PayU__MerchantSalt=${PAYU_MERCHANT_SALT:-PAYU_SALT}
+    ports:
+      - "5000:8080"
+    depends_on:
+      - sqlserver
+    restart: always
+    networks:
+      - 10q_network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: 10q_frontend_web
+    environment:
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_URL=http://backend:8080/api
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    restart: always
+    networks:
+      - 10q_network
+
+volumes:
+  sqlserver_data:
+
+networks:
+  10q_network:
+    driver: bridge
