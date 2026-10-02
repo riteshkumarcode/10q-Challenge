@@ -1,0 +1,16 @@
+{
+  "name": "10q-challenge-root",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "postinstall": "cd frontend && npm install",
+    "build": "cd frontend && npm run build",
+    "start": "node server.js",
+    "serve": "node server.js"
+  },
+  "dependencies": {
+    "next": "16.3.7",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  }
+}
