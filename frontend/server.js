@@ -24,44 +24,87 @@ if (!Array.prototype.with) {
   };
 }
 
+const path = require('path');
+const fs = require('fs');
 const { createServer } = require('http');
 const { parse } = require('url');
-const next = require('next');
 
-const dev = process.env.NODE_ENV !== 'production';
-const hostname = '0.0.0.0';
-const port = parseInt(process.env.PORT, 10) || 3000;
+// In IISNode, process.env.PORT is a named pipe string (e.g. \\.\pipe\iisnode-xxx) or a TCP port.
+// Do NOT parseInt() because named pipes become NaN.
+const port = process.env.PORT || 3000;
 
-// Initialize Next.js app in production mode
-const app = next({
-  dev: false,
-  hostname,
-  port,
-  dir: __dirname
-});
-const handle = app.getRequestHandler();
+// Robust build detection: if .next production build is not yet generated,
+// automatically fall back to dev mode so the server boots up immediately without crashing.
+const hasProductionBuild = fs.existsSync(path.join(__dirname, '.next', 'BUILD_ID')) || 
+                           fs.existsSync(path.join(__dirname, '.next', 'server'));
+const isDev = process.env.NODE_ENV === 'development' || !hasProductionBuild;
 
-app.prepare()
-  .then(() => {
-    createServer(async (req, res) => {
-      try {
-        const parsedUrl = parse(req.url, true);
-        await handle(req, res, parsedUrl);
-      } catch (err) {
-        console.error('Error handling request:', req.url, err);
-        res.statusCode = 500;
-        res.end('Internal Server Error');
-      }
-    })
-    .once('error', (err) => {
-      console.error('Server error:', err);
-      process.exit(1);
-    })
-    .listen(port, () => {
-      console.log(`> 10Q Challenge Production Server running on port ${port}`);
-    });
-  })
-  .catch((err) => {
-    console.error('Next.js app prepare error:', err);
-    process.exit(1);
+console.log(`[10Q Server] Initializing on port/pipe: ${port}, isDev: ${isDev}, hasBuild: ${hasProductionBuild}`);
+
+let next;
+try {
+  next = require('next');
+} catch (e) {
+  console.error('Failed to require next:', e);
+}
+
+if (!next) {
+  const fallback = createServer((req, res) => {
+    res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(`
+      <div style="font-family:system-ui,sans-serif;max-width:600px;margin:50px auto;padding:24px;border:1px solid #fecaca;background:#fff1f2;border-radius:12px;">
+        <h2 style="color:#b91c1c;margin-top:0">10Q Challenge Server - Dependencies Required</h2>
+        <p>The <strong>Next.js</strong> package is not installed yet.</p>
+        <p>In Plesk, click <strong>"NPM Install"</strong> in the Node.js settings panel, then click <strong>"Restart App"</strong>.</p>
+      </div>
+    `);
   });
+  fallback.listen(port, () => {
+    console.log(`Fallback server running on ${port}`);
+  });
+} else {
+  const app = next({
+    dev: isDev,
+    dir: __dirname
+  });
+  const handle = app.getRequestHandler();
+
+  app.prepare()
+    .then(() => {
+      createServer(async (req, res) => {
+        try {
+          const parsedUrl = parse(req.url, true);
+          await handle(req, res, parsedUrl);
+        } catch (err) {
+          console.error('Error handling request:', req.url, err);
+          if (!res.headersSent) {
+            res.statusCode = 500;
+            res.end('Internal Server Error');
+          }
+        }
+      })
+      .once('error', (err) => {
+        console.error('Server error:', err);
+      })
+      .listen(port, () => {
+        console.log(`> 10Q Challenge Server ready on ${port}`);
+      });
+    })
+    .catch((err) => {
+      console.error('Next.js app prepare error:', err);
+      const fallbackServer = createServer((req, res) => {
+        res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
+        res.end(`
+          <div style="font-family:system-ui,sans-serif;max-width:600px;margin:50px auto;padding:24px;border:1px solid #e2e8f0;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,0.05)">
+            <h2 style="color:#e11d48;margin-top:0">10Q Server Startup Status</h2>
+            <p>Next.js prepare encountered an issue:</p>
+            <pre style="background:#f1f5f9;padding:12px;border-radius:6px;overflow:auto;font-size:13px">${err.stack || err.message || err}</pre>
+            <p style="color:#64748b;font-size:13px">Please ensure dependencies are installed via Plesk <strong>NPM Install</strong> and try restarting.</p>
+          </div>
+        `);
+      });
+      fallbackServer.listen(port, () => {
+        console.log(`> Diagnostic fallback server listening on ${port}`);
+      });
+    });
+}

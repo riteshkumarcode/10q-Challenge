@@ -9,8 +9,30 @@
     "serve": "node server.js"
   },
   "dependencies": {
+    "@vimeo/player": "^2.30.4",
+    "canvas-confetti": "^1.9.4",
+    "clsx": "^2.1.1",
+    "framer-motion": "^13.4.6",
+    "katex": "^0.18.9",
+    "lucide-react": "^1.48.0",
     "next": "16.3.7",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "react-icons": "^5.7.0",
+    "swiper": "^14.3.0",
+    "tailwind-merge": "^3.7.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/canvas-confetti": "^1.9.0",
+    "@types/katex": "^0.16.8",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/vimeo__player": "^2.18.3",
+    "eslint": "^9",
+    "eslint-config-next": "16.3.7",
+    "tailwindcss": "^4",
+    "typescript": "^5"
   }
 }
